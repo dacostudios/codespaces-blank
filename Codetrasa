@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transatlantic Simulator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Parisienne&display=swap');
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #add8e6;
+            color: #fff;
+			font-size: 18px;
+			align center
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        table, th, td {
+            border: 1px solid lightblue;
+            padding: 8px;
+        }
+
+        th {
+            text-align: left;
+            background-color: #f2f2f2;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <h1>Transatlantic Simulator</h1>
+    <p>Date: <span id="date">January 1880</span></p>
+    <p>Money: <span id="money">10M</span></p>
+    <button id="nextMonthButton">Next month</button>
+	<button id="resetButton">Reset game</button>
+	<img id="yearImage" src="">
+    <p>Start with 10M of money. You can build transatlantic ships and choose the length and details.</p>
+    <p>Base cost: The cost of a ship depends on its length and the number of details. Each detail costs 1M.</p>
+
+    <!-- Add a form to create a new ship -->
+    <h2>Create a new ship</h2>
+    <form id="newShipForm">
+        <label for="shipName">Ship name:</label>
+        <input type="text" id="shipName" name="shipName"><br><br>
+        <label for="shipLength">Ship length:</label>
+        <input type="number" id="shipLength" name="shipLength"><br><br>
+        <label for="shipDetails">Number of details:</label>
+        <input type="number" id="shipDetails" name="shipDetails"><br><br>
+        <input type="submit" value="Create ship">
+		<label for="shipStage">Ship stage:</label>
+        <select id="shipStage" name="shipStage">
+            <option value="1">Stage 1</option>
+            <option value="2">Stage 2</option>
+            <option value="3">Stage 3</option>
+            <option value="4">Stage 4</option>
+            <option value="5">Stage 5</option>
+            <option value="6">Stage 6</option>
+            <option value="7">Stage 7</option>
+        </select><br><br>
+
+    </form>
+
+    <!-- Add a table to display the ships -->
+    <h2>Ships</h2>
+    <table id="shipsTable">
+        <tr>
+            <th>Name</th>
+            <th>Length</th>
+            <th>Details</th>
+            <th>Popularity</th>
+            <th>Profit</th>
+            <th>Maintenance cost</th>
+			<th>Look</th>
+            <th></th>
+        </tr>
+    </table>
+	
+	<!-- Add a form to request a loan -->
+    <h2>Request a loan</h2>
+    <form id="requestLoanForm">
+        <label for="loanAmount">Loan amount:</label>
+        <input type="number" id="loanAmount" name="loanAmount"><br><br>
+        <label for="loanInterest">Interest rate:</label>
+        <input type="number" id="loanInterest" name="loanInterest"><br><br>
+        <input type="submit" value="Request loan">
+    </form>
+	
+	<!-- Add a span to display the demand level -->
+    <h2>Demand level: <span id="demandLevel"></span></h2>
+
+
+    <h2>Buy a ship</h2>
+    <form id="buyShipForm">
+        <label for="buyShipLength">Ship length:</label>
+        <input type="number" id="buyShipLength" name="buyShipLength"><br><br>
+        <label for="buyShipDetails">Number of details:</label>
+        <input type="number" id="buyShipDetails" name="buyShipDetails"><br><br>
+        <label for="buyShipStage">Ship stage:</label>
+        <select id="buyShipStage" name="buyShipStage">
+            <option value="1">Stage 1</option>
+            <option value="2">Stage 2</option>
+            <option value="3">Stage 3</option>
+            <option value="4">Stage 4</option>
+            <option value="5">Stage 5</option>
+            <option value="6">Stage 6</option>
+            <option value="7">Stage 7</option>
+        </select><br><br>
+        <input type="submit" value="Buy ship">
+    </form>
+
+
+<script>
+// Add your JavaScript code here
+let money = 10000000;
+let demand = 1;
+let loans = [];
+let ships = [];
+let date = new Date(1880, 0);
+let maxStageUnlocked = 1;
+let shipNames = ["Mar Azul", "Ola Gigante", "Viento del Norte", "Estrella del Mar", "Navegante", "Corazón del Océano", "Aventurero", "Explorador", "Rey de los Mares", "Princesa del Mar", "Nube Marina", "Luz del Alba", "Tesoro Escondido", "Marinero Valiente", "Capitán Intrépido", "Isla Misteriosa", "Océano Infinito", "Maravilla del Mar", "Navegando Sueños", "Destino Desconocido"];
+let randomEvents = [
+    {
+        name: "Storm",
+        description: "A storm has damaged some of your ships.",
+        eventFunction: function() {
+            // Damage a random ship
+            let index = Math.floor(Math.random() * ships.length);
+            let ship = ships[index];
+            ship.maintenanceCost += 100000;
+            alert("The ship " + ship.name + " was damaged in the storm and requires 100000 in repairs.");
+        }
+    },
+    {
+        name: "New Trade Route",
+        description: "A new trade route has been discovered, increasing the popularity of your ships.",
+        eventFunction: function() {
+            // Increase the popularity of all ships
+            for (let i = 0; i < ships.length; i++) {
+                let ship = ships[i];
+                ship.popularity += 1;
+            }
+            alert("A new trade route has been discovered, increasing the popularity of your ships.");
+        }
+    }
+];
+
+
+// Constants to control the game balance
+const costPerMeter = 50000;
+const costPerDetail = 1000000;
+const basePopularity = 0;
+const popularityPerMeter = 0.01;
+const popularityPerDetail = 0.5;
+const popularityLossPerMonth = 0.1;
+const profitPerPopularityPoint = 100000;
+const maintenanceCostPerMeter = 1000;
+const maintenanceCostIncreasePerMonth = 100;
+
+// Cargar el estado del juego desde el almacenamiento local
+function loadGameState() {
+    let savedMoney = localStorage.getItem("money");
+    if (savedMoney) {
+        money = parseInt(savedMoney);
+    }
+    let savedShips = localStorage.getItem("ships");
+    if (savedShips) {
+        ships = JSON.parse(savedShips);
+    }
+    let savedDate = localStorage.getItem("date");
+    if (savedDate) {
+        date = new Date(savedDate);
+    }
+    let savedDemand = localStorage.getItem("demand");
+    if (savedDemand) {
+        demand = parseInt(savedDemand);
+    }
+    let savedLoans = localStorage.getItem("loans");
+    if (savedLoans) {
+        loans = JSON.parse(savedLoans);
+    }
+}
+
+// Guardar el estado del juego en el almacenamiento local
+function saveGameState() {
+    localStorage.setItem("money", money);
+    localStorage.setItem("ships", JSON.stringify(ships));
+    localStorage.setItem("date", date.toISOString());
+    localStorage.setItem("demand", demand);
+    localStorage.setItem("loans", JSON.stringify(loans));
+}
+// Update the date display
+function updateDateDisplay() {
+    let monthNames = ["January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    let monthName = monthNames[date.getMonth()];
+    let year = date.getFullYear();
+    document.getElementById("date").innerHTML = monthName + " " + year;
+}
+
+// Update the money display
+function updateMoneyDisplay() {
+    document.getElementById("money").innerHTML = money;
+}
+
+// Calculate the cost of a ship
+function calculateShipCost(length, details) {
+    let cost = length * costPerMeter + details * costPerDetail;
+    return cost;
+}
+
+// Calculate the popularity of a ship
+function calculateShipPopularity(length, details, age) {
+    let popularity = basePopularity + length * popularityPerMeter + details * popularityPerDetail - age * popularityLossPerMonth;
+    return popularity;
+}
+
+// Calculate the profit of a ship
+function calculateShipProfit(popularity) {
+    let profit = popularity * profitPerPopularityPoint * demand;
+    return profit;
+}
+
+// Calculate the maintenance cost of a ship
+function calculateMaintenanceCost(length, age) {
+    let maintenanceCost = length * maintenanceCostPerMeter + age * maintenanceCostIncreasePerMonth;
+    return maintenanceCost;
+}
+
+//bababoy
+function addShip(name, length, details, stage) {
+    if (!isStageUnlocked(stage)) {
+        alert("You haven't unlocked this stage yet.");
+        return;
+    }
+    let stageCost = 0;
+    if (stage == 2) {
+        stageCost = 5000000;
+    } else if (stage == 3) {
+        stageCost = 10000000;
+    } else if (stage == 4) {
+        stageCost = 20000000;
+    } else if (stage == 5) {
+        stageCost = 40000000;
+    } else if (stage == 6) {
+        stageCost = 80000000;
+    } else if (stage == 7) {
+        stageCost = 160000000;
+    }
+    let cost = calculateShipCost(length, details) + stageCost;
+    if (money >= cost) {
+      money -= cost;
+      let age = 0;
+      let popularity = calculateShipPopularity(length, details, age);
+      let profit = calculateShipProfit(popularity);
+      let maintenanceCost = calculateMaintenanceCost(length, age);
+      let yearCreated = date.getFullYear();
+      ships.push({
+        name: name,
+        length: length,
+        details: details,
+        age: age,
+        popularity: popularity,
+        profit: profit,
+        maintenanceCost: maintenanceCost,
+        yearCreated: yearCreated,
+        sold: false,
+        stage: stage
+      });
+      updateShipsTable();
+      updateMoneyDisplay();
+      playSound("horn.mp3");
+    } else {
+      alert("You don't have enough money to build this ship.");
+    }
+}
+// Scrap a ship
+function scrapShip(index) {
+    ships.splice(index, 1);
+    updateShipsTable();
+    playSound("destroy.mp3");
+}
+
+function updateShipsTable() {
+    let table = document.getElementById("shipsTable");
+    // Remove all rows except the header row
+    for (let i = table.rows.length - 1; i > 0; i--) {
+      table.deleteRow(i);
+    }
+    // Add a row for each ship that has not been sold
+    for (let i = 0; i < ships.length; i++) {
+      let ship = ships[i];
+      if (!ship.sold) {
+        let row = table.insertRow(-1);
+        row.insertCell(0).innerHTML = ship.name;
+        row.insertCell(1).innerHTML = ship.length;
+        row.insertCell(2).innerHTML = ship.details;
+        row.insertCell(3).innerHTML = ship.popularity.toFixed(1);
+        row.insertCell(4).innerHTML = ship.profit;
+        row.insertCell(5).innerHTML = ship.maintenanceCost;
+        
+        // Add a cell to display the stage of the ship
+        row.insertCell(6).innerHTML = "Stage " + ship.stage;
+        
+        let cell = row.insertCell(7);
+        let button = document.createElement("button");
+        button.innerHTML = "Scrap";
+        button.onclick = function() {
+          scrapShip(i);
+        };
+        cell.appendChild(button);
+
+        cell = row.insertCell(8);
+        button = document.createElement("button");
+        button.innerHTML = "Sell";
+        button.onclick = function() {
+          sellShip(i);
+        };
+        cell.appendChild(button);
+      }
+    }
+}
+// Handle the form submission
+document.getElementById("newShipForm").onsubmit = function(event) {
+    event.preventDefault();
+    let name = document.getElementById("shipName").value;
+    let length = document.getElementById("shipLength").value;
+    let details = document.getElementById("shipDetails").value;
+    let stage = document.getElementById("shipStage").value;
+    addShip(name, length, details, stage);
+};
+
+// Handle the next month button click
+document.getElementById("nextMonthButton").onclick = function() {
+    // Advance to the next month
+    date.setMonth(date.getMonth() + 1);
+    updateDateDisplay();
+    updateYearImage();
+
+    // Update the game state for the next month
+    for (let i = 0; i < ships.length; i++) {
+      let ship = ships[i];
+      money += ship.profit - ship.maintenanceCost;
+      // TODO: Add code to handle random events such as a ship sinking
+    }
+    updateMoneyDisplay();
+
+    // Randomly sink a ship with a 5% probability
+    if (Math.random() < 0.05 && ships.length > 0) {
+        let index = Math.floor(Math.random() * ships.length);
+        let ship = ships[index];
+        alert("Oh no! The ship " + ship.name + " has sunk!");
+        ships.splice(index, 1);
+        updateShipsTable();
+    }
+
+    // Randomly change the demand with a 20% probability
+    if (Math.random() < 0.2) {
+        demand *= (Math.random() * 0.4 + 0.8);
+        alert("The demand for passenger transport has changed to " + demand.toFixed(2) + ".");
+    }
+
+    // Update the state of the loans
+    for (let i = 0; i < loans.length; i++) {
+        let loan = loans[i];
+        loan.monthsLeft -= 1;
+        money -= loan.amount * loan.interest / 100;
+        if (loan.monthsLeft <= 0) {
+            money -= loan.amount;
+            loans.splice(i, 1);
+            i -= 1;
+        }
+    }
+    updateMoneyDisplay();
+
+    // Update the demand display
+    updateDemandDisplay();
+};
+
+// Play a sound
+function playSound(filename) {
+    let audio = new Audio(filename);
+    audio.play();
+}
+
+// Handle the next month button click
+document.getElementById("nextMonthButton").onclick = function() {
+    // Advance to the next month
+    date.setMonth(date.getMonth() + 1);
+    updateDateDisplay();
+    updateYearImage();
+
+    // Update the game state for the next month
+    for (let i = 0; i < ships.length; i++) {
+      let ship = ships[i];
+      money += ship.profit - ship.maintenanceCost;
+    }
+    updateMoneyDisplay();
+
+    // Randomly sink a ship with a 5% probability
+    if (Math.random() < 0.05 && ships.length > 0) {
+        let index = Math.floor(Math.random() * ships.length);
+        let ship = ships[index];
+        alert("Oh no! The ship " + ship.name + " has sunk!");
+        ships.splice(index, 1);
+        updateShipsTable();
+    }
+};
+
+
+// Load the game state and update the displays
+loadGameState();
+updateDateDisplay();
+updateMoneyDisplay();
+updateShipsTable();
+
+// Update the year image
+function updateYearImage() {
+    let year = date.getFullYear();
+    let imageSrc = "";
+    if (year >= 2000) {
+        imageSrc = "etap7.png";
+    } else if (year >= 1970) {
+        imageSrc = "etap6.png";
+    } else if (year >= 1936) {
+        imageSrc = "etap5.png";
+    } else if (year >= 1923) {
+        imageSrc = "etap4.png";
+    } else if (year >= 1910) {
+        imageSrc = "etap3.png";
+    } else if (year >= 1896) {
+        imageSrc = "etap2.png";
+    } else if (year >= 1880) {
+        imageSrc = "etap1.png";
+    }
+    document.getElementById("yearImage").src = imageSrc;
+}
+
+// Handle the next month button click
+document.getElementById("nextMonthButton").onclick = function() {
+    // Advance to the next month
+    date.setMonth(date.getMonth() + 1);
+    updateDateDisplay();
+    updateYearImage();
+
+    // Update the game state for the next month
+    for (let i = 0; i < ships.length; i++) {
+      let ship = ships[i];
+      money += ship.profit - ship.maintenanceCost;
+      // TODO: Add code to handle random events such as a ship sinking
+    }
+    updateMoneyDisplay();
+};
+
+
+// Reset the game state
+function resetGameState() {
+    money = 10000000;
+    ships = [];
+    date = new Date(1880, 0);
+    
+    // Remove the saved game state from local storage
+    localStorage.removeItem("money");
+    localStorage.removeItem("ships");
+    localStorage.removeItem("date");
+    
+    // Update the displays
+    updateDateDisplay();
+    updateMoneyDisplay();
+    updateShipsTable();
+}
+
+
+// Save the game state every 30 seconds
+setInterval(saveGameState, 30000);
+
+// Handle the reset button click
+document.getElementById("resetButton").onclick = function() {
+  if (confirm("Are you sure you want to reset the game? This will delete your saved game.")) {
+     resetGameState();
+  }
+};
+
+
+// Play background music
+playSound("song.mp3");
+
+function unlockNextStage() {
+    if (maxStageUnlocked >= 7) {
+        alert("You have already unlocked all stages.");
+        return;
+    }
+    let cost = (maxStageUnlocked + 1) * 10000000;
+    if (money >= cost) {
+        money -= cost;
+        maxStageUnlocked += 1;
+        updateMoneyDisplay();
+        alert("You unlocked stage " + maxStageUnlocked + ".");
+    } else {
+        alert("You don't have enough money to unlock the next stage.");
+    }
+}
+
+function sellShip(index) {
+    let ship = ships[index];
+    if (ship.sold) {
+        alert("This ship has already been sold.");
+        return;
+    }
+    let cost = calculateShipCost(ship.length, ship.details);
+    let sellPrice = cost / 2;
+    if (Math.random() < 0.5) {
+        money += sellPrice;
+        updateMoneyDisplay();
+        ship.sold = true;
+        updateShipsTable();
+        alert("You sold the ship for " + sellPrice + ".");
+    } else {
+        alert("No one wants to buy this ship.");
+	    ship.sold = true;
+    }
+}
+
+function buyShip(length, details, stage) {
+    if (!isStageUnlocked(stage)) {
+        alert("You haven't unlocked this stage yet.");
+        return;
+    }
+    let cost = calculateShipCost(length, details) / 2;
+    if (money >= cost) {
+        money -= cost;
+        let name = shipNames[Math.floor(Math.random() * shipNames.length)];
+        ships.push({
+            name: name,
+            length: length,
+            details: details,
+            age: 0,
+            popularity: calculateShipPopularity(length, details, 0),
+            profit: calculateShipProfit(calculateShipPopularity(length, details, 0)),
+            maintenanceCost: calculateMaintenanceCost(length, 0),
+            yearCreated: date.getFullYear(),
+            sold: false,
+            stage: stage
+        });
+        updateShipsTable();
+        updateMoneyDisplay();
+        alert("You bought the " + name + " for " + cost + ".");
+    } else {
+        alert("You don't have enough money to buy this ship.");
+    }
+}
+
+function isStageUnlocked(stage) {
+    let year = date.getFullYear();
+    if (stage == 1 && year >= 1880) {
+        return true;
+    } else if (stage == 2 && year >= 1896) {
+        return true;
+    } else if (stage == 3 && year >= 1910) {
+        return true;
+    } else if (stage == 4 && year >= 1923) {
+        return true;
+    } else if (stage == 5 && year >= 1936) {
+        return true;
+    } else if (stage == 6 && year >= 1970) {
+        return true;
+    } else if (stage == 7 && year >= 2000) {
+        return true;
+    }
+    return false;
+}
+
+document.getElementById("buyShipForm").onsubmit = function(event) {
+    event.preventDefault();
+    let length = document.getElementById("buyShipLength").value;
+    let details = document.getElementById("buyShipDetails").value;
+    let stage = document.getElementById("buyShipStage").value;
+    buyShip(length, details, stage);
+};
+
+// Handle the form submission
+document.getElementById("requestLoanForm").onsubmit = function(event) {
+    event.preventDefault();
+    let amount = document.getElementById("loanAmount").value;
+    let interest = document.getElementById("loanInterest").value;
+    loans.push({
+        amount: amount,
+        interest: interest,
+        monthsLeft: 12
+    });
+    money += amount;
+    updateMoneyDisplay();
+};
+
+
+</script>
+</body>
+</html>
